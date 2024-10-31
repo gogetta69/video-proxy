@@ -2,6 +2,14 @@
 error_reporting(0);
 set_time_limit(0);
 
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: GET, OPTIONS");
+header("Access-Control-Allow-Headers: X-Requested-With, Content-Type, Authorization, Accept");
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
 
 $userSetHost = '';
 $proxyUrl = locateBaseURL() . "hls_proxy.php";
