@@ -3,6 +3,10 @@ error_reporting(0);
 set_time_limit(0);
 ob_end_clean();
 
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: GET, OPTIONS");
+header("Access-Control-Allow-Headers: X-Requested-With, Content-Type, Authorization, Accept");
+
 if (isset($_GET['data']) && !empty($_GET['data']) && isset($_GET['url']) && !empty($_GET['url'])) {
     $decodedData = base64_decode($_GET['data']);
     $parts = explode('|', $decodedData);
