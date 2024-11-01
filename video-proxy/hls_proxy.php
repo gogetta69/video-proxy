@@ -109,21 +109,36 @@ function isMasterRequest($queryParams) {
     return isset($queryParams['url']) && !isset($queryParams['url2']);
 }
 
-function rewriteUrls($content, $baseUrl, $proxyUrl, $data) {
+function rewriteUrls($content, $originalPlaylistUrl, $proxyUrl, $data) {
     $lines = explode("\n", $content);
     $rewrittenLines = [];
     $isNextLineUri = false;
+
+    // Parse the original playlist URL to get both root and full path
+    $parsedOriginalUrl = parse_url($originalPlaylistUrl);
+    $rootUrl = $parsedOriginalUrl['scheme'] . '://' . $parsedOriginalUrl['host'];
+    if (isset($parsedOriginalUrl['port'])) {
+        $rootUrl .= ':' . $parsedOriginalUrl['port'];
+    }
+    $fullBaseUrl = $rootUrl . rtrim(dirname($parsedOriginalUrl['path']), '/');
 
     foreach ($lines as $line) {
         if (empty(trim($line)) || $line[0] === '#') {
             if (preg_match('/URI="([^"]+)"/i', $line, $matches)) {
                 $uri = $matches[1];
+               
+                if (strpos($uri, 'http') !== 0) {
+                    
+                    $uriBase = (strpos($uri, '/') === 0 || strpos($uri, '../') === 0) ? $rootUrl : $fullBaseUrl;
+                    $uri = rtrim($uriBase, '/') . '/' . ltrim($uri, '/');
+                }
+
                 if (strpos($uri, 'hls_proxy.php') === false) {
                     $rewrittenUri = $proxyUrl . '?url=' . urlencode($uri) . '&data=' . urlencode($data);
                     if (strpos($line, '#EXT-X-KEY') !== false) {
                         $rewrittenUri .= '&key=true';
                     }
-                    $line = str_replace($uri, $rewrittenUri, $line);
+                    $line = preg_replace('/URI="[^"]+"/i', 'URI="' . $rewrittenUri . '"', $line);
                 }
             }
             $rewrittenLines[] = $line;
@@ -137,7 +152,8 @@ function rewriteUrls($content, $baseUrl, $proxyUrl, $data) {
         $urlParam = $isNextLineUri ? 'url' : 'url2';
 
         if (!filter_var($line, FILTER_VALIDATE_URL)) {
-            $line = rtrim($baseUrl, '/') . '/' . ltrim($line, '/');
+            $lineBase = (strpos($line, '/') === 0 || strpos($line, '../') === 0) ? $rootUrl : $fullBaseUrl;
+            $line = rtrim($lineBase, '/') . '/' . ltrim($line, '/');
         }
 
         if (strpos($line, 'hls_proxy.php') === false) {
@@ -151,6 +167,7 @@ function rewriteUrls($content, $baseUrl, $proxyUrl, $data) {
     }
     return implode("\n", $rewrittenLines);
 }
+
 
 function fetchEncryptionKey($url, $data) {
     if (isset($_GET['key']) && $_GET['key'] === 'true') {
